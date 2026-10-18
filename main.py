@@ -24,11 +24,10 @@ db.execute("""CREATE TABLE IF NOT EXISTS products (
 """)
 
 
-db.execute("""CREATE TABLE IN NOT EXISTS card (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+# db.execute("""CREATE TABLE IN NOT EXISTS card (
+#     id INTEGER PRIMARY KEY AUTOINCREMENT,
     
-    )""")
-
+#     )"""
 
 data_bay.commit()
-data_bay.close()
+data_bay.close() 
