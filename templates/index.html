@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sport.PIT — Спортивне харчування</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+</head>
+<body>
+
+    <!-- ШАПКА САЙТУ -->
+    <header class="header">
+        <div class="container header-inner">
+            <a href="#" class="logo" id="logoHome">Sport<span>.PIT</span></a>
+
+            <!-- Верхнє меню категорій -->
+            <nav class="category-nav" id="categoryNav">
+                <button class="cat-link active" data-category="all">Всі товари</button>
+                <button class="cat-link" data-category="Протеїн">Протеїн</button>
+                <button class="cat-link" data-category="Креатин">Креатин</button>
+                <button class="cat-link" data-category="Boosters">Boosters</button>
+                <button class="cat-link" data-category="Вітаміни">Вітаміни</button>
+            </nav>
+
+            <!-- Права частина: Пошук, Адмінка (прихована), Увійти, Кошик -->
+            <div class="header-actions">
+                <div class="search-wrap">
+                    <input type="text" id="searchInput" placeholder="Пошук товарів...">
+                </div>
+
+                {% if session.get('user_role') == 'admin' %}
+                    <button class="header-btn admin-toggle-btn" id="adminPanelBtn">Адмін-панель</button>
+                {% endif %}
+
+                {% if session.get('user_id') %}
+                    <span style="color: var(--text-secondary); font-size: 12.5px;">
+                        Привіт, {{ session.get('user_name') }}
+                    </span>
+                    <a href="/logout" class="header-btn">Вийти</a>
+                {% else %}
+                    <button class="header-btn" id="openAuthBtn">Увійти</button>
+                {% endif %}
+
+                <button class="cart-trigger" id="openCartBtn">
+                    <span>Кошик</span>
+                    <span class="cart-badge" id="cartCount">0</span>
+                </button>
+            </div> 
+        </div>
+    </header>
+
+    <!-- =========================================================================
+         ОСНОВНИЙ КАТАЛОГ ВСІХ ТОВАРІВ
+    ========================================================================= -->
+    <main class="container main-catalog" id="catalogView">
+        
+        <div class="catalog-bar">
+            <div class="catalog-title-group">
+                <h1 id="currentCategoryTitle">Всі товари</h1>
+                <span class="items-count">(<span id="productsCount">0</span>)</span>
+            </div>
+
+            <div class="sort-control">
+                <select id="sortSelect">
+                    <option value="default">За замовчуванням</option>
+                    <option value="price-asc">Від дешевших</option>
+                    <option value="price-desc">Від дорожчих</option>
+                    <option value="name-asc">За назвою (А–Я)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="product-grid" id="productGrid">
+
+
+            {% for p in my_products %}
+            <article class="product-card"
+                     data-id="{{ p[0] }}"
+                     data-name="{{ p[1] }}"
+                     data-description="{{ p[2] }}"
+                     data-price="{{ p[3] }}"
+                     data-category="{{ p[4] }}"
+                     data-photo="{{ p[5] }}"
+                     onclick="openProductDetail(this)">
+                <div class="product-img-box">
+                    <img src="{{ p[5] }}" alt="{{ p[1] }}">
+                </div>
+                <div class="product-info">
+                    <h3 class="product-name">{{ p[1] }}</h3>
+                    <p class="product-desc">{{ p[2] }}</p>
+                    <div class="product-bottom">
+                        <span class="product-price">{{ p[3] }} ₴</span>
+                        <button class="buy-btn" onclick="event.stopPropagation(); buyProduct(this)">Купити</button>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+
+        </div>
+
+        <p id="emptyCatalogMsg" class="empty-msg" style="display: none;">У цій категорії поки немає товарів.</p>
+    </main>
+
+    <!-- =========================================================================
+         СТОРІНКА ДЕТАЛЬНОГО ПЕРЕГЛЯДУ ТОВАРУ (CRUD: READ 
+         ========================================================================= -->
+    <section class="container product-detail-view" id="productDetailView" style="display: none;">
+        <div class="detail-top-bar">
+            <button class="header-btn" id="backFromDetailBtn">← Назад до каталогу</button>
+        </div>
+
+        <div class="detail-card" id="detailCardContainer">
+            <div class="detail-img-box">
+                <img id="detailPhoto" src="" alt="Фото товару">
+            </div>
+
+            <div class="detail-info">
+                <div class="detail-meta">
+                    <span class="detail-category" id="detailCategory">Категорія</span>
+                    <span class="detail-id">Код товару: #<span id="detailId">0</span></span>
+                </div>
+
+                <h1 class="detail-title" id="detailName">Назва товару</h1>
+                <div class="detail-price-box">
+                    <span class="detail-price" id="detailPrice">0 ₴</span>
+                    <span class="detail-stock">В наявності</span>
+                </div>
+
+                <div class="detail-desc-block">
+                    <h3>Опис товару</h3>
+                    <p id="detailDescription">Повний опис товару з бази даних...</p>
+                </div>
+
+                <div class="detail-actions">
+                    <button class="primary-btn detail-buy-btn" id="detailBuyBtn">Додати в кошик</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- =========================================================================
+         АДМІН-ПАНЕЛЬ (ДОСТУПНА ТІЛЬКИ ПІСЛЯ ВХОДУ АДМІНІСТРАТОРА)
+         ========================================================================= -->
+    <section class="container admin-view" id="adminView" style="display: none;">
+        <div class="admin-top-bar">
+            <div>
+                <h1>Панель адміністратора</h1>
+                <p>Керування товарами та користувачами у базі даних</p>
+            </div>
+            <button class="header-btn" id="backToShopBtn">← До магазину</button>
+        </div>
+
+        <div class="admin-layout">
+            <!-- Форма додавання товару в таблицю products -->
+            <div class="admin-box">
+                <h2>Додати товар</h2>
+                <form id="addProductForm" action="/admin/add_product" method="POST">
+                    <div class="field">
+                        <label>Назва товару</label>
+                        <input type="text" name="name" id="adminName" placeholder="Введіть назву" required>
+                    </div>
+
+                    <div class="field-row">
+                        <div class="field">
+                            <label>Ціна</label>
+                            <input type="number" step="0.01" name="price" id="adminPrice" placeholder="0.00" required>
+                        </div>
+                        <div class="field">
+                            <label>Категорія</label>
+                            <select name="category" id="adminCategory" required>
+                                <option value="Протеїн">Протеїн</option>
+                                <option value="Креатин">Креатин</option>
+                                <option value="Boosters">Boosters</option>
+                                <option value="Вітаміни">Вітаміни</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label>Фото (шлях або URL)</label>
+                        <input type="text" name="photo" id="adminPhoto" placeholder="/static/img/item.jpg" required>
+                    </div>
+
+                    <div class="field">
+                        <label>Опис товару</label>
+                        <textarea name="description" id="adminDesc" rows="3" placeholder="Введіть опис..." required></textarea>
+                    </div>
+                        <button type="submit" class="primary-btn full-width">Зберегти у БД</button>
+                </form>
+            </div>
+
+            <!-- Таблиці товарів і користувачів з БД -->
+            <div class="admin-tables">
+                <div class="admin-box">
+                    <h2>Товари в базі даних</h2>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Назва</th>
+                                    <th>Категорія</th>
+                                    <th>Ціна</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminProductsList">
+                                {% for p in my_products %}
+                                <tr>
+                                    <td>{{ p[0] }}</td>
+                                    <td>{{ p[1] }}</td>
+                                    <td>{{ p[4] }}</td>
+                                    <td>{{ p[3] }} ₴</td>
+                                    <td class="admin-actions-cell">
+                                        <button type="button" class="edit-link"
+                                                data-id="{{ p[0] }}"
+                                                data-name="{{ p[1] }}"
+                                                data-description="{{ p[2] }}"
+                                                data-price="{{ p[3] }}"
+                                                data-category="{{ p[4] }}"
+                                                data-photo="{{ p[5] }}"
+                                                onclick="openEditModal(this)">
+                                            Редагувати
+                                        </button>
+
+                                        <form action="/admin/delete_product/{{ p[0] }}" method="POST" style="display: inline;">
+                                            <button type="submit" class="del-link">Видалити</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="admin-box" style="margin-top: 18px;">
+                    <h2>Користувачі</h2>
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Ім'я</th>
+                                    <th>Логін</th>
+                                    <th>Роль</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for u in users %}
+                                <tr>
+                                    <td>{{ u[0] }}</td>
+                                    <td>{{ u[1] }}</td>
+                                    <td>{{ u[2] }}</td>
+                                    <td><span class="role-tag">{{ u[4] }}</span></td>
+                                </tr>
+                                {% endfor %}
+                               
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- =========================================================================
+         БОКОВИЙ КОШИК
+         =================================================================== -->
+    <div class="overlay" id="cartOverlay"></div>
+    <aside class="cart-drawer" id="cartDrawer">
+        <div class="drawer-head">
+            <h2>Кошик</h2>
+            <button class="icon-close" id="closeCartBtn">✕</button>
+        </div>
+
+        <div class="drawer-body" id="cartItemsContainer"></div>
+
+        <div class="drawer-foot">
+            <div class="drawer-total">
+                <span>Разом:</span>
+                <strong id="cartTotalPrice">0 ₴</strong>
+            </div>
+            <button class="primary-btn full-width" id="checkoutBtn">Оформити замовлення</button>
+        </div>
+    </aside>
+
+    <!-- =========================================================================
+         МОДАЛЬНЕ ВІКНО: "ДЯКУЄМО ЗА ЗАМОВЛЕННЯ!"
+         ====================================================================== -->
+    <div class="modal-backdrop" id="thankYouModal">
+        <div class="modal-card text-center">
+            <div class="check-circle">✓</div>
+            <h2>Дякуємо за замовлення!</h2>
+            <p>Ваше замовлення успішно прийнято в обробку.</p>
+            <button class="primary-btn full-width" id="closeThankYouBtn">Повернутися до магазину</button>
+        </div>
+    </div>
+
+    <!-- =========================================================================
+         МОДАЛЬНЕ ВІКНО: ВХІД / РЕЄСТРАЦІЯ (ТАБЛИЦЯ users)
+         ========================================================================= -->
+    <div class="modal-backdrop" id="authModal">
+        <div class="modal-card">
+            <div class="modal-head">
+                <div class="auth-tabs">
+                    <button class="auth-tab active" id="tabLoginBtn">Вхід</button>
+                    <button class="auth-tab" id="tabRegBtn">Реєстрація</button>
+                </div>
+                <button class="icon-close" id="closeAuthBtn">✕</button>
+            </div>
+
+            <!-- Форма входу -->
+            <form id="loginForm" action="/login" method="POST">
+                <div class="field">
+                    <label>Логін</label>
+                    <input type="text" name="login" id="loginInput" placeholder="Введіть логін" required>
+                </div>
+                <div class="field">
+                    <label>Пароль</label>
+                    <input type="password" name="password" id="passwordInput" placeholder="Введіть пароль" required>
+                </div>
+                <button type="submit" class="primary-btn full-width">Увійти</button>
+            </form>
+
+            <!-- Форма реєстрації -->
+            <form id="regForm" action="/register" method="POST" style="display: none;">
+                <div class="field">
+                    <label>Ім'я</label>
+                    <input type="text" name="name" placeholder="Ваше ім'я" required>
+                </div>
+                <div class="field">
+                    <label>Логін</label>
+                    <input type="text" name="login" placeholder="Придумайте логін" required>
+                </div>
+                <div class="field">
+                    <label>Пароль</label>
+                    <input type="password" name="password" placeholder="Придумайте пароль" required>
+                </div>
+                <button type="submit" class="primary-btn full-width">Зареєструватися</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- =========================================================================
+         МОДАЛЬНЕ ВІКНО: РЕДАГУВАННЯ ТОВАРУ (CRUD: UPDATE)
+         ====================================== -->
+    <div class="modal-backdrop" id="editProductModal">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h2>Редагувати товар</h2>
+                <button class="icon-close" id="closeEditModalBtn">✕</button>
+            </div>
+
+            <form id="editProductForm" action="/admin/edit_product" method="POST">
+                <input type="hidden" name="id" id="editId">
+
+                <div class="field">
+                    <label>Назва товару</label>
+                    <input type="text" name="name" id="editName" required>
+                </div>
+
+                <div class="field-row">
+                    <div class="field">
+                        <label>Ціна (₴)</label>
+                        <input type="number" step="0.01" name="price" id="editPrice" required>
+                    </div>
+                    <div class="field">
+                        <label>Категорія</label>
+                        <select name="category" id="editCategory" required>
+                            <option value="Протеїн">Протеїн</option>
+                            <option value="Креатин">Креатин</option>
+                            <option value="Boosters">Boosters</option>
+                            <option value="Вітаміни">Вітаміни</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Фото (шлях або URL)</label>
+                    <input type="text" name="photo" id="editPhoto" required>
+                </div>
+
+                <div class="field">
+                    <label>Опис товару</label>
+                    <textarea name="description" id="editDesc" rows="3" required></textarea>
+                </div>
+
+                <button type="submit" class="primary-btn full-width">Зберегти зміни</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script> 
+</body>
+</html>
